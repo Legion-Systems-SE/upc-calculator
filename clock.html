@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Structural Clock</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<style>
+  :root {
+    --bg: #08080d;
+    --fg: #d0d0d8;
+    --dim: #505060;
+    --accent: #6eaadc;
+    --handA: #e8c547;
+    --handB: #26c6da;
+    --green: #5aad5a;
+    --panel: #0e0e16;
+    --border: #1e1e2e;
+    --hover: #1a1a2a;
+    --selected-a: #201a08;
+    --selected-b: #081a20;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+  header {
+    text-align: center;
+    padding: 1.2rem 1rem 0.6rem;
+  }
+  header h1 {
+    font-size: 1.1rem;
+    font-weight: 400;
+    letter-spacing: 0.25em;
+    color: var(--fg);
+  }
+  header .sub {
+    font-size: 0.68rem;
+    color: var(--dim);
+    margin-top: 0.2rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 1.2rem;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 0.5rem 1.2rem 1rem;
+    align-items: start;
+  }
+
+  /* Panels */
+  .panel-left, .panel-right {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .pnl {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1rem 1.2rem;
+  }
+  .pnl-title {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 0.7rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Equation steps */
+  .eq-step { margin-bottom: 0.8rem; }
+  .eq-step:last-child { margin-bottom: 0; }
+  .eq-step .sn {
+    font-size: 0.6rem; color: var(--accent);
+    font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 0.25rem;
+  }
+  .eq-step .sd {
+    font-size: 0.78rem; color: #909098; line-height: 1.5; margin-bottom: 0.3rem;
+  }
+  .eq-step .katex-display { margin: 0.3rem 0 !important; }
+  .eq-step .katex { font-size: 1.05rem !important; }
+
+  /* Selected / comparison panel */
+  .detail-section { display: none; }
+  .detail-section.vis { display: block; }
+  .det-name {
+    font-size: 0.95rem;
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+  }
+  .det-row {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    line-height: 1.8;
+    color: #a0a0b0;
+  }
+  .det-row .lb {
+    color: var(--dim);
+    display: inline-block;
+    min-width: 65px;
+  }
+  .comparison-block {
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border);
+  }
+  .comp-title {
+    font-size: 0.8rem;
+    margin-bottom: 0.4rem;
+  }
+  .resonance-flag {
+    background: #2a1800;
+    border: 1px solid #e8c54744;
+    border-radius: 4px;
+    padding: 0.5rem 0.7rem;
+    margin-top: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--handA);
+  }
+  .copy-btn {
+    margin-top: 0.5rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    padding: 4px 14px;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 0.62rem;
+    cursor: pointer;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Center clock */
+  .panel-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  canvas#clock { display: block; cursor: pointer; }
+  .readout-row {
+    display: flex;
+    gap: 1.5rem;
+    align-items: baseline;
+    justify-content: center;
+  }
+  .readout-item {
+    text-align: center;
+  }
+  .readout-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+  }
+  .readout-label {
+    font-size: 0.6rem;
+    color: var(--dim);
+    margin-top: 0.1rem;
+  }
+  .ctrl-row {
+    display: flex; gap: 0.4rem; align-items: center;
+    justify-content: center; flex-wrap: wrap;
+    margin-top: 0.3rem;
+  }
+  .ctrl-btn {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    padding: 5px 16px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.68rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ctrl-btn:hover { border-color: var(--accent); color: var(--fg); }
+  .ctrl-btn.act { font-weight: 600; }
+  .ctrl-btn.act-a { background: #2a2008; color: var(--handA); border-color: var(--handA); }
+  .ctrl-btn.act-b { background: #082028; color: var(--handB); border-color: var(--handB); }
+  .ctrl-btn.act-mode { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .sep { color: var(--border); font-size: 1.2rem; margin: 0 0.3rem; user-select: none; }
+  .slider-wrap {
+    width: 100%; max-width: 420px;
+    display: none; text-align: center;
+  }
+  .slider-wrap.vis { display: block; }
+  .slider-wrap input { width: 100%; accent-color: var(--accent); margin-top: 0.2rem; }
+  .slider-wrap label {
+    font-size: 0.6rem; color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Right panel constant list */
+  .const-list { list-style: none; }
+  .const-item {
+    display: flex; align-items: center;
+    padding: 5px 6px; border-radius: 3px;
+    cursor: pointer; transition: background 0.15s; gap: 0.5rem;
+  }
+  .const-item:hover { background: var(--hover); }
+  .const-item.sel-a { background: var(--selected-a); }
+  .const-item.sel-b { background: var(--selected-b); }
+  .const-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .const-sym { font-size: 0.85rem; font-weight: 500; min-width: 36px; }
+  .const-name { font-size: 0.68rem; color: var(--dim); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .const-pos { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--dim); min-width: 36px; text-align: right; }
+  .hand-badge {
+    font-size: 0.55rem; font-weight: 700;
+    padding: 1px 5px; border-radius: 3px;
+    display: none; flex-shrink: 0;
+  }
+  .hand-badge.badge-a { background: var(--handA); color: var(--bg); }
+  .hand-badge.badge-b { background: var(--handB); color: var(--bg); }
+  .hand-badge.vis { display: inline-block; }
+
+  footer {
+    text-align: center; padding: 0.8rem;
+    font-size: 0.58rem; color: var(--dim);
+    border-top: 1px solid var(--border);
+    margin-top: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; max-width: 700px; }
+    .panel-center { order: -1; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>THE STRUCTURAL CLOCK</h1>
+  <div class="sub">digit-curvature positions of physical and mathematical constants &mdash; v I</div>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT -->
+  <div class="panel-left">
+    <div class="pnl">
+      <div class="pnl-title">Method</div>
+      <div class="eq-step">
+        <div class="sn">1. Encode</div>
+        <div class="sd">Extract the first 10 significant digits, discarding magnitude.</div>
+        <div>$$\text{encode}(x) \;\to\; [d_1,\, d_2,\, \ldots,\, d_{10}]$$</div>
+      </div>
+      <div class="eq-step">
+        <div class="sn">2. Curvature</div>
+        <div class="sd">Second finite difference &mdash; the discrete acceleration of the digit sequence.</div>
+        <div>$$\Delta^1_i = d_{i+1} - d_i \qquad \Delta^2_i = \Delta^1_{i+1} - \Delta^1_i$$</div>
+      </div>
+      <div class="eq-step">
+        <div class="sn">3. Position</div>
+        <div class="sd">Map the digit sequence to a clock angle. Scale-invariant.</div>
+        <div>$$f = 0.d_1 d_2 \ldots d_{10} \qquad \theta = f \times 2\pi$$</div>
+      </div>
+      <div class="eq-step">
+        <div class="sn">4. Comparison</div>
+        <div class="sd">The dot product of two constants' curvature vectors measures structural resonance. If the result has digits forming an arithmetic progression, they resonate.</div>
+        <div>$$\text{dot} = \sum_i \Delta^2_A[i] \cdot \Delta^2_B[i]$$</div>
+      </div>
+    </div>
+
+    <div class="pnl detail-section" id="detailPanel">
+      <div class="pnl-title">Selected</div>
+
+      <div id="detailA" class="detail-section vis">
+        <div class="det-name" id="nameA" style="color:var(--handA)"></div>
+        <div class="det-row"><span class="lb">Value:</span> <span id="valA"></span></div>
+        <div class="det-row"><span class="lb">Digits:</span> <span id="digA"></span></div>
+        <div class="det-row"><span class="lb">&Delta;&sup2;:</span> <span id="d2A"></span></div>
+        <div class="det-row"><span class="lb">Position:</span> <span id="posA"></span></div>
+      </div>
+
+      <div id="detailB" class="detail-section">
+        <div class="det-name" id="nameB" style="color:var(--handB); margin-top:0.6rem;"></div>
+        <div class="det-row"><span class="lb">Value:</span> <span id="valB"></span></div>
+        <div class="det-row"><span class="lb">Digits:</span> <span id="digB"></span></div>
+        <div class="det-row"><span class="lb">&Delta;&sup2;:</span> <span id="d2B"></span></div>
+        <div class="det-row"><span class="lb">Position:</span> <span id="posB"></span></div>
+      </div>
+
+      <div id="comparisonBlock" class="comparison-block detail-section">
+        <div class="comp-title" id="compTitle"></div>
+        <div class="det-row"><span class="lb">Interval:</span> <span id="compInterval"></span></div>
+        <div class="det-row"><span class="lb">Angle:</span> <span id="compAngle"></span></div>
+        <div class="det-row"><span class="lb">Dot:</span> <span id="compDot"></span></div>
+        <div class="det-row"><span class="lb">|Dot|:</span> <span id="compDotAbs"></span></div>
+        <div id="resonanceFlag" class="resonance-flag detail-section"></div>
+      </div>
+
+      <button class="copy-btn" onclick="copyDerivation()">Copy derivation</button>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="panel-center">
+    <canvas id="clock" width="580" height="580"></canvas>
+    <div class="readout-row">
+      <div class="readout-item">
+        <div class="readout-time" id="readoutA" style="color:var(--handA)">-:--</div>
+        <div class="readout-label">Hand A</div>
+      </div>
+      <div class="readout-item">
+        <div class="readout-time" id="readoutB" style="color:var(--handB)">-:--</div>
+        <div class="readout-label">Hand B</div>
+      </div>
+    </div>
+    <div class="ctrl-row">
+      <button class="ctrl-btn act-a" id="btnA" onclick="setHand('A')">A</button>
+      <button class="ctrl-btn" id="btnB" onclick="setHand('B')">B</button>
+      <span class="sep">|</span>
+      <button class="ctrl-btn act-mode" id="btnQ" onclick="setView('quantized')">Quantized</button>
+      <button class="ctrl-btn" id="btnE" onclick="setView('explore')">Explore</button>
+    </div>
+    <div class="slider-wrap" id="sliderWrap">
+      <label>Drag the active hand or slide: <span id="angleVal">0.0</span>&deg;</label>
+      <input type="range" id="angleSlider" min="0" max="3600" value="0" step="1">
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel-right">
+    <div class="pnl">
+      <div class="pnl-title">Constants</div>
+      <ul class="const-list" id="constList"></ul>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Mattias Hammarsten &amp; Claude (Anthropic, Opus 4.6) &mdash;
+  <a href="https://github.com/Legion-Systems-SE/critical-fold">critical-fold</a> &mdash;
+  Legion Systems SE, Uppsala 2026
+</footer>
+
+<script>
+const C = [
+  { key:'kB',    sym:'k_B',  name:'Boltzmann',          val:'1.380649 × 10⁻²³ J/K',   digits:'1380648520', color:'#78909c' },
+  { key:'g1',    sym:'γ₁',   name:'Zeta zero 1',        val:'14.134725...',             digits:'1413472514', color:'#4fc3f7' },
+  { key:'qe',    sym:'qₑ',   name:'Elementary charge',  val:'1.602176634 × 10⁻¹⁹ C',   digits:'1602176630', color:'#9575cd' },
+  { key:'phi',   sym:'φ',    name:'Golden ratio',       val:'1.618033988...',            digits:'1618033988', color:'#e8c547' },
+  { key:'zeta2', sym:'ζ(2)', name:'Pi²/6',              val:'1.644934066...',            digits:'1644934066', color:'#26c6da' },
+  { key:'g2',    sym:'γ₂',   name:'Zeta zero 2',        val:'21.022039...',              digits:'2102203963', color:'#4dd0e1' },
+  { key:'g3',    sym:'γ₃',   name:'Zeta zero 3',        val:'25.010857...',              digits:'2501085758', color:'#4db6ac' },
+  { key:'e',     sym:'e',    name:'Euler number',       val:'2.718281828...',             digits:'2718281828', color:'#ffa726' },
+  { key:'c',     sym:'c',    name:'Speed of light',     val:'299,792,458 m/s',           digits:'2997924580', color:'#ef5350' },
+  { key:'pi',    sym:'π',    name:'Pi',                 val:'3.141592653...',             digits:'3141592653', color:'#66bb6a' },
+  { key:'NA',    sym:'Nₐ',   name:'Avogadro',           val:'6.022140 × 10²³ /mol',      digits:'6022140760', color:'#8d6e63' },
+  { key:'h',     sym:'h',    name:'Planck constant',    val:'6.626070 × 10⁻³⁴ J·s',     digits:'6626070150', color:'#ab47bc' },
+  { key:'alpha', sym:'α',    name:'Fine structure',     val:'7.297353 × 10⁻³',           digits:'7297352569', color:'#ff7043' },
+];
+
+C.forEach(c => {
+  const d = c.digits.split('').map(Number);
+  c.digitArr = d;
+  c.frac = d.reduce((s, v, i) => s + v * Math.pow(10, -(i+1)), 0);
+  c.hourFloat = c.frac * 12;
+  c.angle = c.frac * 2 * Math.PI;
+  const d1 = []; for (let i = 0; i < d.length-1; i++) d1.push(d[i+1]-d[i]);
+  const d2 = []; for (let i = 0; i < d1.length-1; i++) d2.push(d1[i+1]-d1[i]);
+  c.d1 = d1; c.d2 = d2;
+  const hh = Math.floor(c.hourFloat);
+  const mm = Math.floor((c.hourFloat - hh) * 60);
+  c.timeStr = `${hh}:${String(mm).padStart(2,'0')}`;
+});
+
+// STATE
+let activeHand = 'A';
+let handA = null;       // constant object or { freeAngle: degrees }
+let handB = null;
+let view = 'quantized';
+let isDragging = false;
+
+const canvas = document.getElementById('clock');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const CX = W/2, CY = H/2, R = W/2 - 55;
+
+function fmtTime(hf) {
+  const h = Math.floor(hf), mf = (hf-h)*60, m = Math.floor(mf), s = Math.floor((mf-m)*60);
+  return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function handHourFloat(hand) {
+  if (!hand) return null;
+  if (hand.freeAngle !== undefined) return (hand.freeAngle / 360) * 12;
+  return hand.hourFloat;
+}
+
+function handAngleRad(hand) {
+  if (!hand) return null;
+  if (hand.freeAngle !== undefined) return (hand.freeAngle / 360) * 2 * Math.PI;
+  return hand.angle;
+}
+
+function handColor(which) { return which === 'A' ? '#e8c547' : '#26c6da'; }
+function handSym(hand) { return hand && hand.sym ? hand.sym : 'free'; }
+
+// CONTROLS
+function setHand(h) {
+  activeHand = h;
+  document.getElementById('btnA').className = 'ctrl-btn' + (h==='A' ? ' act-a' : '');
+  document.getElementById('btnB').className = 'ctrl-btn' + (h==='B' ? ' act-b' : '');
+}
+
+function setView(v) {
+  view = v;
+  document.getElementById('btnQ').classList.toggle('act-mode', v==='quantized');
+  document.getElementById('btnE').classList.toggle('act-mode', v==='explore');
+  document.getElementById('sliderWrap').classList.toggle('vis', v==='explore');
+}
+
+function assignToActive(c) {
+  if (activeHand === 'A') handA = c;
+  else handB = c;
+  updateDetails();
+  updateList();
+}
+
+function assignFreeAngle(deg) {
+  const obj = { freeAngle: deg };
+  if (activeHand === 'A') handA = obj;
+  else handB = obj;
+  updateDetails();
+}
+
+// LIST
+function buildList() {
+  const ul = document.getElementById('constList');
+  C.forEach(c => {
+    const li = document.createElement('li');
+    li.className = 'const-item';
+    li.dataset.key = c.key;
+    li.onclick = () => assignToActive(c);
+    li.innerHTML = `
+      <div class="const-dot" style="background:${c.color}"></div>
+      <span class="const-sym" style="color:${c.color}">${c.sym}</span>
+      <span class="const-name">${c.name}</span>
+      <span class="const-pos">${c.timeStr}</span>
+      <span class="hand-badge badge-a" data-badge-a="${c.key}">A</span>
+      <span class="hand-badge badge-b" data-badge-b="${c.key}">B</span>
+    `;
+    ul.appendChild(li);
+  });
+}
+
+function updateList() {
+  document.querySelectorAll('.const-item').forEach(el => {
+    el.classList.remove('sel-a', 'sel-b');
+    if (handA && handA.key === el.dataset.key) el.classList.add('sel-a');
+    if (handB && handB.key === el.dataset.key) el.classList.add('sel-b');
+  });
+  document.querySelectorAll('[data-badge-a]').forEach(el => {
+    el.classList.toggle('vis', !!(handA && handA.key === el.dataset.badgeA));
+  });
+  document.querySelectorAll('[data-badge-b]').forEach(el => {
+    el.classList.toggle('vis', !!(handB && handB.key === el.dataset.badgeB));
+  });
+}
+
+// DETAILS
+function fillDetail(id, hand, color) {
+  const sec = document.getElementById(id);
+  if (!hand || hand.freeAngle !== undefined) {
+    sec.classList.remove('vis');
+    return;
+  }
+  sec.classList.add('vis');
+  document.getElementById('name' + id.slice(-1)).textContent = `${hand.sym} — ${hand.name}`;
+  document.getElementById('name' + id.slice(-1)).style.color = color;
+  document.getElementById('val' + id.slice(-1)).textContent = hand.val;
+  document.getElementById('dig' + id.slice(-1)).textContent = `[${hand.digitArr.join(', ')}]`;
+  document.getElementById('d2' + id.slice(-1)).textContent = `[${hand.d2.join(', ')}]`;
+  document.getElementById('pos' + id.slice(-1)).textContent = `${hand.timeStr} (${(hand.angle*180/Math.PI).toFixed(1)}°)`;
+}
+
+function updateDetails() {
+  const panel = document.getElementById('detailPanel');
+  const hasAny = handA || handB;
+  panel.classList.toggle('vis', hasAny);
+
+  fillDetail('detailA', handA, 'var(--handA)');
+  fillDetail('detailB', handB, 'var(--handB)');
+
+  // Comparison
+  const comp = document.getElementById('comparisonBlock');
+  const resFlag = document.getElementById('resonanceFlag');
+  resFlag.classList.remove('vis');
+
+  if (handA && handB && handA.d2 && handB.d2) {
+    comp.classList.add('vis');
+    const hfA = handHourFloat(handA), hfB = handHourFloat(handB);
+    let diffMin = Math.abs(hfA - hfB) * 60;
+    if (diffMin > 360) diffMin = 720 - diffMin;
+    const angDiff = diffMin * 0.5;
+
+    document.getElementById('compTitle').textContent = `${handA.sym}  ↔  ${handB.sym}`;
+    document.getElementById('compTitle').style.color = 'var(--fg)';
+    document.getElementById('compInterval').textContent = `${diffMin.toFixed(1)} minutes (${(diffMin/60).toFixed(2)} hours)`;
+    document.getElementById('compAngle').textContent = `${angDiff.toFixed(1)}°`;
+
+    const minLen = Math.min(handA.d2.length, handB.d2.length);
+    let dot = 0;
+    for (let i = 0; i < minLen; i++) dot += handA.d2[i] * handB.d2[i];
+    document.getElementById('compDot').textContent = String(dot);
+
+    const absDot = Math.abs(dot);
+    const dotStr = String(absDot);
+    document.getElementById('compDotAbs').textContent = `${absDot} → digits [${dotStr.split('').join(', ')}]`;
+
+    if (dotStr.length === 3) {
+      const dd = dotStr.split('').map(Number);
+      const D2val = dd[0] - 2*dd[1] + dd[2];
+      if (D2val === 0) {
+        resFlag.classList.add('vis');
+        resFlag.textContent = `D2 = ${dd[0]} - 2×${dd[1]} + ${dd[2]} = 0 → RESONANCE (arithmetic progression)`;
+      } else {
+        resFlag.classList.add('vis');
+        resFlag.style.background = '#1a1a20';
+        resFlag.style.borderColor = 'var(--border)';
+        resFlag.style.color = 'var(--dim)';
+        resFlag.textContent = `D2 = ${dd[0]} - 2×${dd[1]} + ${dd[2]} = ${D2val} (no resonance)`;
+      }
+    }
+  } else {
+    comp.classList.remove('vis');
+  }
+
+  // Readouts
+  document.getElementById('readoutA').textContent = handA ? fmtTime(handHourFloat(handA)) : '-:--';
+  document.getElementById('readoutB').textContent = handB ? fmtTime(handHourFloat(handB)) : '-:--';
+}
+
+// CLOCK DRAWING
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Ring
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI*2);
+  ctx.strokeStyle = '#1c1c30';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Ticks
+  for (let i = 0; i < 60; i++) {
+    const a = -Math.PI/2 + (i/60)*Math.PI*2;
+    const major = i%5===0;
+    const inner = major ? R-14 : R-7;
+    ctx.beginPath();
+    ctx.moveTo(CX+Math.cos(a)*inner, CY+Math.sin(a)*inner);
+    ctx.lineTo(CX+Math.cos(a)*R, CY+Math.sin(a)*R);
+    ctx.strokeStyle = major ? '#2e2e48' : '#18182a';
+    ctx.lineWidth = major ? 1.5 : 0.7;
+    ctx.stroke();
+  }
+
+  // Hour numbers
+  for (let i = 0; i < 12; i++) {
+    const a = -Math.PI/2 + (i/12)*Math.PI*2;
+    ctx.font = '13px system-ui, sans-serif';
+    ctx.fillStyle = '#2e2e48';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(i===0?'12':String(i), CX+Math.cos(a)*(R-28), CY+Math.sin(a)*(R-28));
+  }
+
+  // Constant markers
+  C.forEach(c => {
+    const a = -Math.PI/2 + c.angle;
+    const isA = handA && handA.key === c.key;
+    const isB = handB && handB.key === c.key;
+    const isSel = isA || isB;
+    const dotR = isSel ? 8 : 5;
+
+    ctx.beginPath();
+    ctx.moveTo(CX+Math.cos(a)*(R-3), CY+Math.sin(a)*(R-3));
+    ctx.lineTo(CX+Math.cos(a)*(R+10), CY+Math.sin(a)*(R+10));
+    ctx.strokeStyle = isSel ? c.color : c.color+'55';
+    ctx.lineWidth = isSel ? 2.5 : 1.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(CX+Math.cos(a)*(R+6), CY+Math.sin(a)*(R+6), dotR, 0, Math.PI*2);
+    ctx.fillStyle = c.color;
+    if (isSel) { ctx.shadowColor = c.color; ctx.shadowBlur = 14; }
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    const lr = R + (isSel ? 34 : 30);
+    ctx.font = isSel ? 'bold 16px system-ui' : '14px system-ui';
+    ctx.fillStyle = isSel ? c.color : c.color+'aa';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(c.sym, CX+Math.cos(a)*lr, CY+Math.sin(a)*lr);
+  });
+
+  // Draw arc between hands
+  if (handA && handB) {
+    const aA = -Math.PI/2 + handAngleRad(handA);
+    const aB = -Math.PI/2 + handAngleRad(handB);
+    let start = Math.min(aA, aB), end = Math.max(aA, aB);
+    if (end - start > Math.PI) { const t = start; start = end; end = t + Math.PI*2; }
+    ctx.beginPath();
+    ctx.arc(CX, CY, R-45, start, end);
+    ctx.strokeStyle = '#ffffff22';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Hand A
+  drawHand(handA, '#e8c547', R-42);
+  // Hand B
+  drawHand(handB, '#26c6da', R-55);
+
+  // Center
+  if (handA || handB) {
+    ctx.beginPath();
+    ctx.arc(CX, CY, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#333';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(CX, CY, 3, 0, Math.PI*2);
+    ctx.fillStyle = activeHand === 'A' ? '#e8c547' : '#26c6da';
+    ctx.fill();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+function drawHand(hand, color, len) {
+  if (!hand) return;
+  const a = -Math.PI/2 + handAngleRad(hand);
+
+  ctx.beginPath();
+  ctx.moveTo(CX, CY);
+  ctx.lineTo(CX+Math.cos(a)*len, CY+Math.sin(a)*len);
+  ctx.strokeStyle = color + '55';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(CX, CY);
+  ctx.lineTo(CX+Math.cos(a)*len, CY+Math.sin(a)*len);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(CX+Math.cos(a)*len, CY+Math.sin(a)*len, 4, 0, Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// INTERACTION
+canvas.addEventListener('mousedown', e => {
+  if (view === 'explore') { isDragging = true; handleDrag(e); }
+  else handleClick(e);
+});
+canvas.addEventListener('mousemove', e => { if (isDragging) handleDrag(e); });
+canvas.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mouseleave', () => isDragging = false);
+canvas.addEventListener('touchstart', e => {
+  if (view === 'explore') { isDragging = true; handleDrag(e.touches[0]); }
+  else handleClick(e.touches[0]);
+  e.preventDefault();
+}, { passive: false });
+canvas.addEventListener('touchmove', e => { if (isDragging) { handleDrag(e.touches[0]); e.preventDefault(); } }, { passive: false });
+canvas.addEventListener('touchend', () => isDragging = false);
+
+function handleDrag(e) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width;
+  const x = (e.clientX - rect.left) * sx - CX;
+  const y = (e.clientY - rect.top) * sx - CY;
+  let a = Math.atan2(x, -y) * 180 / Math.PI;
+  if (a < 0) a += 360;
+  assignFreeAngle(a);
+  document.getElementById('angleSlider').value = a * 10;
+  document.getElementById('angleVal').textContent = a.toFixed(1);
+}
+
+function handleClick(e) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width;
+  const mx = (e.clientX - rect.left) * sx;
+  const my = (e.clientY - rect.top) * sx;
+  let closest = null, closestD = 30;
+  C.forEach(c => {
+    const a = -Math.PI/2 + c.angle;
+    const cx = CX + Math.cos(a) * (R+6);
+    const cy = CY + Math.sin(a) * (R+6);
+    const d = Math.hypot(mx-cx, my-cy);
+    if (d < closestD) { closestD = d; closest = c; }
+  });
+  if (closest) assignToActive(closest);
+}
+
+document.getElementById('angleSlider').addEventListener('input', e => {
+  const a = parseFloat(e.target.value) / 10;
+  document.getElementById('angleVal').textContent = a.toFixed(1);
+  assignFreeAngle(a);
+});
+
+function copyDerivation() {
+  const lines = [];
+  if (handA && handA.sym) {
+    lines.push(`Hand A: ${handA.sym} — ${handA.name}`, `  Value: ${handA.val}`,
+      `  Encode: [${handA.digitArr.join(', ')}]`, `  D2: [${handA.d2.join(', ')}]`,
+      `  Position: ${handA.timeStr} (${(handA.angle*180/Math.PI).toFixed(2)}°)`, '');
+  }
+  if (handB && handB.sym) {
+    lines.push(`Hand B: ${handB.sym} — ${handB.name}`, `  Value: ${handB.val}`,
+      `  Encode: [${handB.digitArr.join(', ')}]`, `  D2: [${handB.d2.join(', ')}]`,
+      `  Position: ${handB.timeStr} (${(handB.angle*180/Math.PI).toFixed(2)}°)`, '');
+  }
+  if (handA && handB && handA.d2 && handB.d2) {
+    const minLen = Math.min(handA.d2.length, handB.d2.length);
+    let dot = 0;
+    for (let i = 0; i < minLen; i++) dot += handA.d2[i] * handB.d2[i];
+    lines.push(`Comparison: ${handA.sym} ↔ ${handB.sym}`, `  Dot product: ${dot}`, `  |Dot|: ${Math.abs(dot)}`);
+    const ds = String(Math.abs(dot));
+    if (ds.length === 3) {
+      const dd = ds.split('').map(Number);
+      lines.push(`  D2 of |dot| digits: ${dd[0]} - 2×${dd[1]} + ${dd[2]} = ${dd[0]-2*dd[1]+dd[2]}`);
+    }
+  }
+  navigator.clipboard.writeText(lines.join('\n'));
+}
+
+// INIT
+buildList();
+draw();
+window.addEventListener('load', () => {
+  if (typeof renderMathInElement === 'function') {
+    renderMathInElement(document.body, {
+      delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+      throwOnError: false,
+    });
+  }
+});
+</script>
+</body>
+</html>

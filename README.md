@@ -124,10 +124,26 @@ The tension operators (encode, delta2, dot) originate from the
 a research project exploring zeta-zero-seeded manifold dynamics.
 The UPC extracts the digit-curvature framework as a standalone test.
 
+## The Structural Clock
+
+`clock.html` is an interactive instrument built on the same digit-curvature
+framework. It maps 13 physical and mathematical constants to positions on
+a clock face using their significant-digit encoding.
+
+**Two hands.** Set Hand A on one constant, Hand B on another. The clock
+computes their D2 dot product in real time and tests for resonance
+(arithmetic progression in the dot product digits, D2 = 0).
+
+Open `clock.html` in any browser. No dependencies, no server, no install.
+
+The name is structural: **C-lock** — the speed of light integer
+(c = 299,792,458) is the phase lock in the finite field F₃₆₇₇.
+
 ## Files
 
 - `upc_test.py` — test suite and CLI (all logic here)
 - `tension.py` — minimal digit-curvature operators (5 functions)
+- `clock.html` — interactive structural clock (two-hand resonance instrument)
 
 ## Authors
 
