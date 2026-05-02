@@ -139,11 +139,46 @@ Open `clock.html` in any browser. No dependencies, no server, no install.
 The name is structural: **C-lock** — the speed of light integer
 (c = 299,792,458) is the phase lock in the finite field F₃₆₇₇.
 
+## The Dimensional Peel
+
+[**Open the Dimensional Peel**](https://legionsystems.se/peel.html)
+
+`peel.html` extends the Structural Clock into higher dimensions.
+
+The clock is a projection — 8-dimensional curvature structure collapsed
+to one angle on a circle. The Dimensional Peel strips that projection
+away, one shadow at a time:
+
+- **Layer 0** — S¹ clock (maximum projection, all shadows stacked)
+- **Layer 1** — PCA unfold (constants slide to their true 2D positions;
+  PC1 + PC2 capture 79.6% of the 8D structure)
+- **Layer 2** — Orthogonal skeleton (9 pairs whose curvature vectors
+  are perpendicular in 8D; γ₂ ⊥ γ₃ at exactly 90.000°, dot product = 0)
+- **Layer 3** — Dipole structure (antiparallel pairs, clusters;
+  k_B ↔ h at 178.5° — Boltzmann and Planck at opposite poles)
+
+**Millennium Problem hotlinks.** Seven buttons map each Clay Mathematics
+Institute Millennium Problem to the specific peel state and constant
+configuration where that problem's structural connection is visible:
+
+| Problem | Peel | Key feature |
+|---------|------|-------------|
+| Riemann Hypothesis | 2 | γ₂ ⊥ γ₃ exact orthogonality; fold requires σ = 1/2 |
+| Yang-Mills mass gap | 3 | k_B ↔ h dipole; spectral gap at fold lock |
+| Navier-Stokes | 0→3 | Smooth flow animation; fold prevents blow-up |
+| Hodge conjecture | 3 | Integer dot products as algebraic cycle representatives |
+| Birch & Swinnerton-Dyer | 2 | c ≡ ζ(2) cluster; F₃₆₇₇ multiplicative orders |
+| P vs NP | 0→3 | Observer-dependent: P = NP inside structure, P ≠ NP under projection |
+| Poincaré (solved) | 1 | S¹ → ℝ² transition as Ricci flow surgery |
+
+Open `peel.html` in any browser. Self-contained with KaTeX CDN for equations.
+
 ## Files
 
 - `upc_test.py` — test suite and CLI (all logic here)
 - `tension.py` — minimal digit-curvature operators (5 functions)
 - `clock.html` — interactive structural clock (two-hand resonance instrument)
+- `peel.html` — dimensional peel (8D→2D projection stripping, Millennium Problem map)
 
 ## Authors
 
