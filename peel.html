@@ -126,6 +126,25 @@
     margin-right: 0.3rem;
   }
 
+  /* Structural discovery row */
+  .disc-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 0.2rem;
+  }
+  .disc-label {
+    font-size: 0.55rem;
+    color: var(--dim);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-right: 0.3rem;
+  }
+  .mill-btn.grav:hover { border-color: #78909c; color: var(--fg); }
+  .mill-btn.grav.act { background: #0d1520; color: #b0cde0; border-color: #78909c; }
+
   .info-col {
     display: flex;
     flex-direction: column;
@@ -213,6 +232,9 @@
     color: #e8c54799;
     font-family: 'JetBrains Mono', monospace;
   }
+  .mill-panel.grav-active { border-color: #78909c44; }
+  .mill-panel.grav-active .pnl-title { color: #b0cde0; border-color: #78909c33; }
+  .mill-panel.grav-active .problem-observe { color: #90a4ae99; }
 
   footer {
     text-align: center;
@@ -260,6 +282,10 @@
       <button class="mill-btn" onclick="showProblem('bsd')">BSD</button>
       <button class="mill-btn" onclick="showProblem('pvnp')">P vs NP</button>
       <button class="mill-btn solved" onclick="showProblem('poincare')">Poincar&eacute; &check;</button>
+    </div>
+    <div class="disc-row">
+      <span class="disc-label">Structural:</span>
+      <button class="mill-btn grav" onclick="showProblem('gravity')">Gravity</button>
     </div>
   </div>
 
@@ -361,6 +387,17 @@ const DIPOLES = [
   {a:'kB', b:'g1', sep:165.5},
 ];
 
+// Gravitational constants (overlay, not in chromatic basis)
+const GRAV = [
+  { key:'grav', sym:'g',       name:'Standard gravity',      px:+0.20007, py:-0.37510, color:'#cfd8dc', lockTarget:'g1',    lockD2:'+7' },
+  { key:'G',    sym:'G',       name:'Newton constant',       px:-0.43438, py:+0.01789, color:'#b0bec5', lockTarget:'e',     lockD2:'+7' },
+  { key:'Ghc',  sym:'G/ℏc',   name:'Quantum coupling',      px:+0.07373, py:-0.54955, color:'#90a4ae', lockTarget:'g3',    lockD2:'+7' },
+  { key:'aGp',  sym:'α_G(p)', name:'Grav. fine str. (p)',    px:+0.29818, py:-0.65877, color:'#78909c', lockTarget:'g1',    lockD2:'+7' },
+  { key:'aGe',  sym:'α_G(e)', name:'Grav. fine str. (e)',    px:-0.78895, py:-0.31723, color:'#607d8b', lockTarget:'zeta2', lockD2:'+7' },
+];
+const gravByKey = {};
+GRAV.forEach(g => gravByKey[g.key] = g);
+
 // Millennium Problems
 const PROBLEMS = {
   rh: {
@@ -442,6 +479,18 @@ const PROBLEMS = {
     highlight: null,
     highlightPairs: [],
   },
+  gravity: {
+    title: 'GRAVITY — THE BUILDING',
+    name: 'Five representations, zero resonances, only fold locks',
+    formal: 'Is gravity a force on the background, or the geometry of the background itself?',
+    body: 'Five representations of gravity tested: felt (<em>g</em>), classical (<em>G</em>), natural coupling (<em>G/ℏc</em>), and both dimensionless gravitational fine-structure constants (<em>α_G</em>). <strong>All five are silent</strong> — no resonance (D2 = 0) with any constant. Every other quantity tested can resonate. Gravity only <em>locks</em> (|D2| = 7). It holds structure; it does not carry signal. <strong>On the map</strong>: ◇ markers show gravitational constants projected onto the existing curvature space. Dashed lines show k=7 fold locks. <strong>g</strong> and <strong>α_G(p)</strong> drain to γ₁ — the terminal. <strong>G/ℏc</strong> connects to γ₃ — the chaos floor, where the Feigenbaum constant also lives. <strong>α_G(e)</strong> connects to ζ(2). <strong>G</strong> connects to <em>e</em> (Euler). Gravity spans every floor but never uses the γ₂ elevator. It is the building.',
+    math: '$$g \\xrightarrow{k=7} \\gamma_1 \\qquad G \\xrightarrow{k=7} e \\qquad G/\\hbar c \\xrightarrow{k=7} \\gamma_3 \\qquad \\alpha_G \\xrightarrow{k=7} \\gamma_1, \\; \\zeta(2)$$',
+    observe: 'Look: all connections are dashed (locks). No solid lines (resonances). Gravity holds — it does not sing.',
+    peel: 2,
+    highlight: ['g1','g3','e','zeta2'],
+    highlightPairs: [],
+    isGravity: true,
+  },
 };
 
 C.forEach(c => {
@@ -513,7 +562,9 @@ function showProblem(id) {
   document.getElementById('millBody').innerHTML = p.body;
   document.getElementById('millMath').innerHTML = p.math;
   document.getElementById('millObserve').textContent = p.observe;
-  document.getElementById('millPanel').classList.add('vis');
+  const panel = document.getElementById('millPanel');
+  panel.classList.add('vis');
+  panel.classList.toggle('grav-active', !!p.isGravity);
 
   if (typeof renderMathInElement === 'function') {
     renderMathInElement(document.getElementById('millMath'), {
@@ -742,6 +793,77 @@ function drawPCAAxes(alpha, t) {
   ctx.restore();
 }
 
+function drawGravityOverlay(t) {
+  if (!activeProblem || !PROBLEMS[activeProblem] || !PROBLEMS[activeProblem].isGravity) return;
+  const morphT = clamp(t, 0, 1);
+  if (morphT < 0.3) return;
+  const alpha = Math.min(1, (morphT - 0.3) * 2.5);
+
+  const pcaScale = R * 0.85;
+  ctx.save();
+
+  GRAV.forEach(g => {
+    const gx = CX + g.px * pcaScale;
+    const gy = CY - g.py * pcaScale;
+
+    const target = byKey[g.lockTarget];
+    if (!target) return;
+    const tp = getPosition(target, morphT);
+
+    const pulse = 0.6 + 0.4 * Math.sin(pulsePhase * 0.8);
+
+    // Lock line
+    ctx.globalAlpha = alpha * 0.5 * pulse;
+    ctx.beginPath();
+    ctx.moveTo(gx, gy);
+    ctx.lineTo(tp.x, tp.y);
+    ctx.strokeStyle = g.color;
+    ctx.lineWidth = 2.2;
+    ctx.setLineDash([8, 3, 2, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // k=7 badge at midpoint
+    const mx = (gx + tp.x) / 2, my = (gy + tp.y) / 2;
+    ctx.globalAlpha = alpha * 0.55;
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillStyle = g.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('k=7', mx, my - 9);
+
+    // Diamond marker
+    ctx.globalAlpha = alpha;
+    const sz = 7;
+    ctx.beginPath();
+    ctx.moveTo(gx, gy - sz);
+    ctx.lineTo(gx + sz, gy);
+    ctx.lineTo(gx, gy + sz);
+    ctx.lineTo(gx - sz, gy);
+    ctx.closePath();
+    ctx.strokeStyle = g.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = g.color + '25';
+    ctx.fill();
+
+    // Glow
+    ctx.shadowColor = g.color;
+    ctx.shadowBlur = 8 * pulse;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Label
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.font = 'bold 12px system-ui';
+    ctx.fillStyle = g.color;
+    ctx.textAlign = 'center';
+    ctx.fillText(g.sym, gx, gy - sz - 12);
+  });
+
+  ctx.restore();
+}
+
 function drawConstants(t) {
   C.forEach(c => {
     const pos = getPosition(c, clamp(t, 0, 1));
@@ -873,6 +995,7 @@ function draw() {
   drawDipoles(dipoleAlpha, morphT);
   drawOrthogonals(orthoAlpha, morphT);
   drawConstants(peelT);
+  drawGravityOverlay(peelT);
 
   requestAnimationFrame(draw);
 }
