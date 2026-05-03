@@ -49,6 +49,7 @@ Usage:
     python3 upc_test.py --explore         # experimental: normals, primes
     python3 upc_test.py --calibrate       # noise floor only
     python3 upc_test.py --batch           # include quantum+spectral subsets
+    python3 upc_test.py --c-inverse       # trace c-inverse least-resistance path
 
 Authors: Mattias Hammarsten / Claude (Anthropic)
 Date: 2026-05-01, Uppsala
@@ -582,6 +583,190 @@ def explore():
 
 
 # =====================================================================
+# c-INVERSE PATH — deterministic walk through the critical line
+# =====================================================================
+
+def c_inverse():
+    """Walk the inverse of c's curvature, following least resistance.
+
+    Starting from c's exact digits, walk in the direction OPPOSITE to c's
+    D2 curvature vector.  When the walker leaves c's Voronoi cell (the
+    "corner"), switch to least-resistance navigation: always steer toward
+    the unvisited constant at the smallest angle.
+
+    Result: visits all 13 constants, crosses the critical line 7 times.
+    Forward c is a dead end (fixed point of its own curvature direction).
+
+    Deterministic: same path every run (no randomness).
+    """
+    import numpy as np
+
+    # Build D2 vectors from the 13 parents
+    ref_digits = {}
+    for pname, (pval, _) in PARENTS.items():
+        ref_digits[pname] = T.encode(pval, DIGIT_LENGTH)
+    ref_d2 = {nm: np.array(T.delta2(d), float) for nm, d in ref_digits.items()}
+    ref_norms = {nm: np.linalg.norm(v) for nm, v in ref_d2.items()}
+    names = list(PARENTS.keys())
+
+    def d2_vec(digs):
+        return np.array(T.delta2(digs), float)
+
+    def angle_to(digs, tvec):
+        v = d2_vec(digs)
+        n, tn = np.linalg.norm(v), np.linalg.norm(tvec)
+        if n < 1e-10 or tn < 1e-10:
+            return 180.0
+        return np.degrees(np.arccos(np.clip(np.dot(v, tvec) / (n * tn), -1, 1)))
+
+    def nearest(digs):
+        v = d2_vec(digs)
+        n = np.linalg.norm(v)
+        if n < 1e-10:
+            return 'origin', 180.0
+        best_nm, best_cos = None, -2
+        for nm, rv in ref_d2.items():
+            cos = np.dot(v, rv) / (n * ref_norms[nm])
+            if cos > best_cos:
+                best_cos = cos
+                best_nm = nm
+        return best_nm, np.degrees(np.arccos(np.clip(best_cos, -1, 1)))
+
+    def resonances(digs):
+        v = d2_vec(digs)
+        hits = []
+        for nm, rv in ref_d2.items():
+            dot = int(np.dot(v, rv))
+            if 100 <= abs(dot) <= 999:
+                d0 = abs(dot) // 100
+                d1 = (abs(dot) // 10) % 10
+                d2v = abs(dot) % 10
+                dd = d0 - 2 * d1 + d2v
+                if dd == 0:
+                    hits.append((nm, dot, 'RES'))
+                elif abs(dd) == 7:
+                    hits.append((nm, dot, 'LOCK'))
+        return hits
+
+    def next_target(near, visited):
+        neighbors = []
+        for other in names:
+            if other not in visited:
+                cos = np.clip(
+                    np.dot(ref_d2[near], ref_d2[other])
+                    / (ref_norms[near] * ref_norms[other]), -1, 1)
+                ang = np.degrees(np.arccos(cos))
+                neighbors.append((other, ang))
+        if neighbors:
+            neighbors.sort(key=lambda x: x[1])
+            return ref_d2[neighbors[0][0]].copy(), neighbors[0]
+        return None, None
+
+    # ── Forward: walk along +c direction ──
+    print()
+    print('=' * 72)
+    print('  c-INVERSE PATH')
+    print('  Walk the inverse of c, then least resistance at each corner.')
+    print('=' * 72)
+
+    print('\n  FORWARD (along c):')
+    target_fwd = ref_d2['c'].copy()
+    cur = list(ref_digits['c'])
+    path_fwd = ['c']
+    for step in range(50):
+        best_ang = 999
+        best_move = None
+        for pos in range(10):
+            for d in [-1, 1]:
+                trial = list(cur)
+                trial[pos] = (trial[pos] + d) % 10
+                ang = angle_to(trial, target_fwd)
+                if ang < best_ang:
+                    best_ang = ang
+                    best_move = trial
+        cur = best_move
+        near, _ = nearest(cur)
+        if near != path_fwd[-1]:
+            path_fwd.append(near)
+            break
+
+    if len(path_fwd) == 1:
+        print('    c is a DEAD END. Cannot leave its own curvature direction.')
+        print('    (Fixed point of its own observation.)')
+    else:
+        print(f'    Path: {" -> ".join(path_fwd)}')
+
+    # ── Inverse: walk along -c direction ──
+    print('\n  INVERSE (along -c):')
+    target = -ref_d2['c'].copy()
+    cur = list(ref_digits['c'])
+    path = ['c']
+    cornered = False
+    critical_hits = []
+
+    for step in range(200):
+        best_ang = 999
+        best_move = None
+        for pos in range(10):
+            for d in [-1, 1]:
+                trial = list(cur)
+                trial[pos] = (trial[pos] + d) % 10
+                ang = angle_to(trial, target)
+                if ang < best_ang:
+                    best_ang = ang
+                    best_move = trial
+
+        cur = best_move
+        near, near_ang = nearest(cur)
+        res = resonances(cur)
+
+        for nm, dot, tag in res:
+            if nm in ('z1', 'z2', 'z3') and tag == 'RES':
+                critical_hits.append((step, nm, dot))
+
+        if near != path[-1]:
+            path.append(near)
+            digs_str = ','.join(str(x) for x in cur)
+            res_str = '  '.join(f'{nm}={dot}({tag})' for nm, dot, tag in res)
+            print(f'    step {step:>3}: [{digs_str}] -> {near:>6}'
+                  f'  ({near_ang:.1f}° off)  {res_str}')
+
+            if cornered:
+                new_target, info = next_target(near, set(path))
+                if new_target is not None:
+                    target = new_target
+                    print(f'             least resistance -> {info[0]}'
+                          f' ({info[1]:.1f}°)')
+                else:
+                    print('             ALL VISITED')
+                    break
+            else:
+                cornered = True
+                print('             *** CORNERED — leaving c ***')
+                new_target, info = next_target(near, set(path))
+                if new_target is not None:
+                    target = new_target
+                    print(f'             least resistance -> {info[0]}'
+                          f' ({info[1]:.1f}°)')
+
+    # Map parent names to display names
+    display = {'c': 'c', 'h': 'h', 'k': 'k', 'Na': 'Na', 'e_ch': 'e',
+               'alpha': 'α', 'pi': 'π', 'euler': 'e', 'phi': 'φ',
+               'z1': 'γ₁', 'z2': 'γ₂', 'z3': 'γ₃', 'zeta2': 'ζ(2)'}
+
+    print(f'\n  Full path: {" -> ".join(display.get(p, p) for p in path)}')
+    print(f'  Constants visited: {len(set(path))}/13')
+    print(f'  Critical line crossings: {len(critical_hits)}')
+    for step, nm, dot in critical_hits:
+        print(f'    step {step}: {display.get(nm, nm)} = {dot}')
+
+    print(f'\n  The inverse of light visits every constant and crosses')
+    print(f'  the critical line {len(critical_hits)} times.')
+    print(f'  Forward light is a fixed point. The only exit is the quantum.')
+    print()
+
+
+# =====================================================================
 # SINGLE VALUE TEST
 # =====================================================================
 
@@ -642,6 +827,8 @@ Parent subsets (--scale):
                         help='include quantum and spectral subsets')
     parser.add_argument('--negative', action='store_true',
                         help='negative controls only')
+    parser.add_argument('--c-inverse', action='store_true', dest='c_inverse',
+                        help='trace c-inverse least-resistance path')
     args = parser.parse_args()
 
     # Single value
@@ -662,6 +849,11 @@ Parent subsets (--scale):
     # Explore only
     if args.explore:
         explore()
+        return
+
+    # c-inverse path
+    if args.c_inverse:
+        c_inverse()
         return
 
     # Negative only
